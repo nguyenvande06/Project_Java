@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE hibernate-configuration PUBLIC
+        "-//Hibernate/Hibernate Configuration DTD 3.0//EN"
+        "http://hibernate.sourceforge.net/hibernate-configuration-3.0.dtd">
+<hibernate-configuration>
+    <session-factory>
+        <property name="hibernate.connection.driver_class">com.microsoft.sqlserver.jdbc.SQLServerDriver</property>
+        <property name="hibernate.connection.url">jdbc:sqlserver://localhost:1433;databaseName=career_platform;encrypt=false;trustServerCertificate=true</property>
+        <property name="hibernate.connection.username">myuser</property>
+        <property name="hibernate.connection.password">123456</property>
+        <property name="hibernate.dialect">org.hibernate.dialect.SQLServerDialect</property>
+        <property name="hibernate.hbm2ddl.auto">update</property>
+        <property name="hibernate.show_sql">true</property>
+
+        <mapping class="pojo.TechPath"/>
+        <mapping class="pojo.SkillNode"/>
+        <mapping class="pojo.LearningResource"/>
+        <mapping class="pojo.StudentProfile"/>
+        <mapping class="pojo.StudentSkillProgress"/>
+    </session-factory>
+</hibernate-configuration>
