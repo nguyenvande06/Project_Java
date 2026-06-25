@@ -2,19 +2,24 @@ package com.fe.pojo;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
+import javax.persistence.MapsId;
+import javax.persistence.OneToOne;
 import javax.persistence.Table;
 
 @Entity
 @Table(name = "student_profile")
 public class StudentProfile {
 	@Id
-	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	private Long studentId;
+    @Column(name = "student_id")
+    private long studentId; 
+	
+    @OneToOne
+    @MapsId
+    @JoinColumn(name = "student_id")
+    private User user;
 
 	private String mssv;
 	private String githubUsername;
@@ -74,5 +79,13 @@ public class StudentProfile {
 
 	public void setTargetPath(TechPath targetPath) {
 		this.targetPath = targetPath;
+	}
+
+	public User getUser() {
+		return user;
+	}
+
+	public void setUser(User user) {
+		this.user = user;
 	}
 }

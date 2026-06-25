@@ -19,4 +19,13 @@ public class SkillNodeDAO extends GenericDAOImpl<SkillNode, Long> {
 				 .setParameter("pathId", pathId)
 				 .getResultList();
 	}
+	public List<SkillNode> findRootNodesByPathId(Long pathId) {
+        String jpql = "SELECT s FROM SkillNode s " +
+                      "WHERE s.path.pathId = :pathId " +
+                      "AND s.parent.nodeId IS NULL"; // Đổi 'parent.nodeId' thành thuộc tính tự liên kết trong Pojo của bạn
+        
+        return em.createQuery(jpql, SkillNode.class)
+                 .setParameter("pathId", pathId)
+                 .getResultList();
+    }
 }

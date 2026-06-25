@@ -11,6 +11,7 @@ import javax.persistence.Table;
 
 @Entity
 @Table(name = "tech_path")
+// Lộ trình học
 public class TechPath {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
