@@ -1,6 +1,8 @@
 package com.fe.service;
 
-import java.util.ArrayList;
+import java.time.LocalDate;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -13,52 +15,85 @@ import com.fe.util.JPAUtil;
 
 public class JobTrendService {
 
-	public void showJobTrend() {
+	public List<LocalDate> getAvailableDates() {
 		EntityManager em = JPAUtil.getEntityManager();
 		try {
 			JobTrendDAO dao = new JobTrendDAO(em);
-			List<JobTrend> trends = dao.findAll();
+			return dao.getDistinctDates();
+		} finally {
+			em.close();
+		}
+	}
 
-			if (trends.isEmpty()) {
-				System.out.println(">> Chưa có dữ liệu xu hướng thị trường.");
-				return;
+	public void showTrendByDate(LocalDate selectedDate, LocalDate benchmarkDate) {
+		EntityManager em = JPAUtil.getEntityManager();
+		try {
+			JobTrendDAO dao = new JobTrendDAO(em);
+			List<String> portals = Arrays.asList("TOPCV", "LINKEDIN");
+
+			System.out.println("\n-------------------------------------------------------------------------");
+			System.out.println("[KẾT QUẢ PHÂN TÍCH TẦN SUẤT TỪ KHÓA TRONG NGÀY " + selectedDate + "]");
+			System.out.println("-------------------------------------------------------------------------");
+
+			Map<String, Map<String, Integer>> benchmarkMap = new HashMap<>();
+			if (benchmarkDate != null) {
+				for (JobTrend t : dao.findByDate(benchmarkDate)) {
+					benchmarkMap.computeIfAbsent(t.getJobPortal(), k -> new HashMap<>()).put(t.getSkillName(),
+							t.getFrequencyCount());
+				}
 			}
 
-			// Gộp frequency_count theo skill_name
-			Map<String, Integer> skillCount = new LinkedHashMap<>();
-			Map<String, String> skillPortal = new LinkedHashMap<>();
+			for (String portal : portals) {
+				List<JobTrend> trends = dao.findByDateAndPortal(selectedDate, portal);
+				if (trends.isEmpty())
+					continue;
 
-			for (JobTrend t : trends) {
-				String skill = t.getSkillName();
-				int count = t.getFrequencyCount();
-				skillCount.put(skill, skillCount.getOrDefault(skill, 0) + count);
-				skillPortal.put(skill, t.getJobPortal());
+				int total = 0;
+				for (JobTrend t : trends)
+					total += t.getFrequencyCount();
+
+				System.out.println("\n🌐 CỔNG TUYỂN DỤNG: " + portal);
+				for (JobTrend t : trends) {
+					double percent = total == 0 ? 0 : (t.getFrequencyCount() * 100.0 / total);
+					System.out.printf("   - %-20s: %3d lượt xuất hiện (Chiếm %.1f%%)%n", t.getSkillName(),
+							t.getFrequencyCount(), percent);
+				}
 			}
 
-			// Sắp xếp giảm dần theo frequency
-			List<Map.Entry<String, Integer>> sorted = new ArrayList<>(skillCount.entrySet());
-			sorted.sort((a, b) -> b.getValue() - a.getValue());
+			if (benchmarkDate != null && !benchmarkMap.isEmpty()) {
+				System.out.println("\n-------------------------------------------------------------------------");
+				System.out.println("[XU HƯỚNG THỊ TRƯỜNG - So với ngày " + benchmarkDate + "]");
 
-			// In bảng
-			System.out.println("\n╔══════════════════════════════════════════════════════════╗");
-			System.out.println("║         THỐNG KÊ XU HƯỚNG THỊ TRƯỜNG TUYỂN DỤNG         ║");
-			System.out.println("╚══════════════════════════════════════════════════════════╝");
-			System.out.printf("%-5s %-20s %-15s %-10s%n", "STT", "Công nghệ", "Nguồn", "Số lần đề cập");
-			System.out.println("──────────────────────────────────────────────────────────");
+				Map<String, Integer> selectedSkillTotal = new LinkedHashMap<>();
+				for (String portal : portals) {
+					for (JobTrend t : dao.findByDateAndPortal(selectedDate, portal)) {
+						selectedSkillTotal.merge(t.getSkillName(), t.getFrequencyCount(), Integer::sum);
+					}
+				}
 
-			int rank = 1;
-			for (Map.Entry<String, Integer> entry : sorted) {
-				String medal = rank == 1 ? "🥇" : rank == 2 ? "🥈" : rank == 3 ? "🥉" : "  ";
-				System.out.printf("%-5s %-20s %-15s %-10d%n", medal + rank, entry.getKey(),
-						skillPortal.getOrDefault(entry.getKey(), "-"), entry.getValue());
-				rank++;
+				Map<String, Integer> benchmarkSkillTotal = new LinkedHashMap<>();
+				for (Map<String, Integer> portalMap : benchmarkMap.values()) {
+					portalMap.forEach((skill, count) -> benchmarkSkillTotal.merge(skill, count, Integer::sum));
+				}
+
+				int selectedTotal = selectedSkillTotal.values().stream().mapToInt(i -> i).sum();
+				int benchmarkTotal = benchmarkSkillTotal.values().stream().mapToInt(i -> i).sum();
+
+				for (Map.Entry<String, Integer> entry : selectedSkillTotal.entrySet()) {
+					String skill = entry.getKey();
+					double selectedPct = selectedTotal == 0 ? 0 : (entry.getValue() * 100.0 / selectedTotal);
+					double benchmarkPct = benchmarkSkillTotal.containsKey(skill) && benchmarkTotal > 0
+							? (benchmarkSkillTotal.get(skill) * 100.0 / benchmarkTotal)
+							: 0;
+					double diff = selectedPct - benchmarkPct;
+
+					String trend = diff > 0 ? "📈" : diff < 0 ? "📉" : "➡";
+					System.out.printf(" %s %-20s ---> [%s%.1f%%]%n", trend, skill,
+							diff > 0 ? "TĂNG: " : diff < 0 ? "GIẢM: " : "GIỮ NGUYÊN: ", Math.abs(diff));
+				}
 			}
 
-			System.out.println("──────────────────────────────────────────────────────────");
-			System.out.println("Tổng số công nghệ: " + sorted.size());
-			System.out.println("💡 Top công nghệ được tuyển dụng nhiều nhất: "
-					+ (sorted.isEmpty() ? "N/A" : sorted.get(0).getKey()));
-			System.out.println("══════════════════════════════════════════════════════════");
+			System.out.println("=========================================================================");
 
 		} finally {
 			em.close();
